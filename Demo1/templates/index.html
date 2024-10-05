@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimized Homeless Data Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.2/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        #main-container {
+            position: relative;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        #chart {
+            height: 600px;
+            width: 100%;
+            margin-top: 60px; /* Add space for controls */
+        }
+        #controls {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+        }
+        .control-group {
+            margin-right: 20px;
+        }
+        select, button {
+            padding: 6px 12px;
+            font-size: 14px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        select:hover, button:hover {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        h1 {
+            text-align: center;
+            color: #1a3a5c;
+            margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        label {
+            margin-right: 5px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <h1>Homeless Population Data by City</h1>
+    <div id="main-container">
+        <div id="controls">
+            <div class="control-group">
+                <label for="year">Year:</label>
+                <select id="year"></select>
+            </div>
+            <div class="control-group">
+                <label for="topN">Top N CoCs:</label>
+                <select id="topN">
+                    <option value="10">10</option>
+                    <option value="15" selected>15</option>
+                    <option value="20">20</option>
+                </select>
+            </div>
+            <button id="toggleView">Toggle View</button>
+        </div>
+        <div id="chart"></div>
+    </div>
+    <script>
+        // INSERT_DATA_HERE
+
+        var myChart = echarts.init(document.getElementById('chart'));
+        var years = [...new Set(data.map(item => item.Year))].sort((a, b) => a - b);
+        var yearSelector = document.getElementById('year');
+        var topNSelector = document.getElementById('topN');
+        var toggleViewButton = document.getElementById('toggleView');
+        var isHorizontal = false;
+
+        years.forEach(year => {
+            var option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            yearSelector.appendChild(option);
+        });
+        yearSelector.value = years[years.length - 1];
+
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toString();
+        }
+
+        function truncateLabel(str, maxLength) {
+            if (str.length > maxLength) {
+                return str.substr(0, maxLength - 3) + '...';
+            }
+            return str;
+        }
+
+        function updateChart() {
+            var year = yearSelector.value;
+            var topN = parseInt(topNSelector.value);
+            var yearData = data.filter(item => item.Year == year);
+            yearData.sort((a, b) => b.Overall_Homeless - a.Overall_Homeless);
+            var topCoCNames = yearData.slice(0, topN).map(item => item['CoC Name']);
+
+            var seriesData = ['Overall_Homeless', 'Sheltered', 'Unsheltered'].map(type => ({
+                name: type.replace('_', ' '),
+                type: 'bar',
+                data: topCoCNames.map(name => yearData.find(item => item['CoC Name'] === name)[type] || 0)
+            }));
+
+            var option = {
+                title: {
+                    text: `Top ${topN} CoCs by Homeless Population Types in ${year}`,
+                    left: 'center',
+                    top: '20px',
+                    textStyle: {
+                        fontSize: 20,
+                        fontWeight: 'bold',
+                        color: '#1a3a5c'
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: ['Overall Homeless', 'Sheltered', 'Unsheltered'],
+                    top: '50px',
+                    textStyle: { fontSize: 12 }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: isHorizontal ? '3%' : '15%',
+                    top: '100px',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: isHorizontal ? 'value' : 'category',
+                    data: isHorizontal ? null : topCoCNames,
+                    axisLabel: {
+                        interval: 0,
+                        rotate: isHorizontal ? 0 : 45,
+                        fontSize: 12,
+                        fontWeight: 'bold',
+                        color: '#555',
+                        formatter: function(value) {
+                            return isHorizontal ? formatNumber(value) : truncateLabel(value, 20);
+                        }
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#999'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: isHorizontal ? 'category' : 'value',
+                    data: isHorizontal ? topCoCNames : null,
+                    axisLabel: {
+                        fontSize: 12,
+                        formatter: function(value) {
+                            return isHorizontal ? truncateLabel(value, 20) : formatNumber(value);
+                        }
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#999'
+                        }
+                    }
+                },
+                series: seriesData
+            };
+
+            myChart.setOption(option);
+        }
+
+        yearSelector.addEventListener('change', updateChart);
+        topNSelector.addEventListener('change', updateChart);
+        toggleViewButton.addEventListener('click', function() {
+            isHorizontal = !isHorizontal;
+            updateChart();
+        });
+
+        updateChart();
+
+        window.addEventListener('resize', function() {
+            myChart.resize();
+        });
+    </script>
+</body>
+</html>
