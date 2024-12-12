@@ -12,10 +12,10 @@ Technical Project Manager (TPM): Dhruv Shah
 Project Manager (PM): Jasmine Dong
 
 Team Members:
-Syeda Shehrbano Aqeel (team lead)
-Samritha Aadhi Ravikumar
-Kunshu Yang
-Renjie Fan
+Syeda Shehrbano Aqeel (team lead),
+Samritha Aadhi Ravikumar,
+Kunshu Yang,
+Renjie Fan,
 Shiheng Xu
 
 ## Project Overview:
