@@ -1,0 +1,550 @@
+---
+title: "ACS Table"
+author: "Shiheng Xu"
+date: "2024-11-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### load packages
+```{r}
+library(dplyr)
+library(readr)
+library(stringr)
+library(purrr)
+
+# Set your main directory path
+main_dir <- "/Users/xushiheng/Downloads"
+extract_year <- function(file_name) {
+  str_extract(file_name, "\\d{4}")
+}
+```
+### Define a function to abstract data
+```{r}
+library(dplyr)
+library(readr)
+library(tidyr)  # Ensure `replace_na()` is available
+
+process_variable_folder <- function(folder_name, column_name, sum_columns = NULL, new_sum_column_name = NULL) {
+  folder_path <- file.path(main_dir, folder_name)
+  files <- list.files(folder_path, full.names = TRUE, pattern = "-Data.csv$")
+  
+  data_list <- map(files, function(file) {
+    # Extract year from file name
+    year <- extract_year(basename(file))
+    
+    # Read data, ensuring the first row is treated as column names
+    data <- read_csv(file, col_names = TRUE, show_col_types = FALSE)
+    
+    # Check if GEO_ID column exists
+    if (!"GEO_ID" %in% names(data)) {
+      stop("The column 'GEO_ID' is missing in file:", file)
+    }
+    
+    # Add Year column
+    data <- data %>%
+      mutate(Year = as.integer(year))
+    
+    # If sum_columns are provided, calculate the sum and rename the resulting column
+    if (!is.null(sum_columns) && !is.null(new_sum_column_name)) {
+      # Check if all required columns exist in the current file
+      available_columns <- sum_columns[sum_columns %in% names(data)]
+      
+      if (length(available_columns) > 0) {
+        if (folder_name == "B25106") {
+          # Convert columns to numeric, replacing non-numeric values with 0
+          data <- data %>%
+            mutate(across(all_of(available_columns), ~ suppressWarnings(as.numeric(.)), .names = "numeric_{col}")) %>%
+            mutate(across(starts_with("numeric_"), ~ replace_na(., 0))) %>%
+            rowwise() %>%
+            mutate(!!new_sum_column_name := sum(c_across(starts_with("numeric_")), na.rm = TRUE)) %>%
+            ungroup() %>%
+            select(GEO_ID, Year, !!new_sum_column_name)
+        } else {
+          # For other folders, keep NA in non-numeric entries
+          data <- data %>%
+            mutate(across(all_of(available_columns), as.numeric)) %>%
+            rowwise() %>%
+            mutate(!!new_sum_column_name := sum(c_across(all_of(available_columns)), na.rm = TRUE)) %>%
+            ungroup() %>%
+            select(GEO_ID, Year, !!new_sum_column_name)
+        }
+      } else {
+        warning("None of the specified columns are available in file: ", file)
+        data <- data %>%
+          mutate(!!new_sum_column_name := NA) %>%
+          select(GEO_ID, Year, !!new_sum_column_name)
+      }
+    } else {
+      # For other folders, select only the required columns
+      data <- data %>%
+        select(GEO_ID, Year, all_of(column_name))
+    }
+    
+    return(data)
+  })
+  
+  # Bind rows from all years
+  bind_rows(data_list)
+}
+```
+
+```{r}
+#-------------------------------------VERSION 1--------------------------------------------
+# # Total Population
+# population_data <- process_variable_folder("B01003", "B01003_001E")
+# 
+# # Median Gross Rent
+# rent_data <- process_variable_folder("B25064", "B25064_001E")
+# 
+# # Median Household Income
+# income_data <- process_variable_folder("B19013", "B19013_001E")
+# 
+# # Poverty Rate
+# poverty_data <- process_variable_folder("B17001", "B17001_001E")
+# 
+# # Rental Vacancy Rate
+# vacancy_data <- process_variable_folder("B25004", "B25004_001E")
+# 
+# # Percent Renter Households
+# renter_data <- process_variable_folder("B25008", "B25008_001E")
+# 
+# # Percent Cost-Burdened Renters (summing specified columns and renaming)
+# cost_burdened_data <- process_variable_folder(
+#   "B25106",
+#   column_name = NULL,  # Not needed for this case
+#   sum_columns = c("B25106_028E", "B25106_032E", "B25106_036E", "B25106_040E", "B25106_044E"),
+#   new_sum_column_name = "B25106_001E"
+# )
+# 
+# # Unemployment Rate
+# unemployment_data <- process_variable_folder("B23001", "B23001_001E")
+```
+
+### Only select indicated vairables
+```{r}
+#--------------------------------------VERSION 2----------------------------------------------
+# Total Population
+population_data <- process_variable_folder("B01003", "B01003_001E")
+
+# Median Gross Rent
+rent_data <- process_variable_folder("B25064", "B25064_001E")
+
+# Median Household Income
+income_data <- process_variable_folder("B19013", "B19013_001E")
+
+# Poverty Rate
+poverty_data <- process_variable_folder("B17001", "B17001_002E")
+
+# Vacancy Rate Variables
+total_housing_data <- process_variable_folder("B25002", "B25002_001E")  # Total housing units
+vacant_housing_data <- process_variable_folder("B25002", "B25002_003E")  # Vacant housing units
+
+# Percent Renter Households
+renter_data <- process_variable_folder("B25003", "B25003_003E")  # Renter-occupied housing units
+total_occupied_data <- process_variable_folder("B25003", "B25003_001E")  # Total occupied housing units
+
+# Percent Cost-Burdened Renters
+cost_burdened_data <- process_variable_folder(
+  "B25106",
+  column_name = NULL,  # Not needed for this case
+  sum_columns = c("B25106_028E", "B25106_032E", "B25106_036E", "B25106_040E", "B25106_044E"),
+  new_sum_column_name = "B25106_001E"
+)
+
+# Unemployment Rate Variables
+total_labor_force_data <- process_variable_folder("B23025", "B23025_003E")  # Total labor force
+unemployed_data <- process_variable_folder("B23025", "B23025_005E")  # Unemployed individuals
+
+# Duplicate 2011 data for 2010 in total labor force
+total_labor_force_2011 <- total_labor_force_data %>%
+  filter(Year == 2011)
+
+total_labor_force_2010 <- total_labor_force_2011 %>%
+  mutate(Year = 2010)
+
+# Add duplicated 2010 data to total labor force
+total_labor_force_data <- total_labor_force_data %>%
+  bind_rows(total_labor_force_2010)
+
+# Duplicate 2011 data for 2010 in unemployed data
+unemployed_2011 <- unemployed_data %>%
+  filter(Year == 2011)
+
+unemployed_2010 <- unemployed_2011 %>%
+  mutate(Year = 2010)
+
+# Add duplicated 2010 data to unemployed individuals
+unemployed_data <- unemployed_data %>%
+  bind_rows(unemployed_2010)
+
+```
+
+```{r}
+#----------------------------------------VERSION 1-------------------------------------------------
+# # Merge all variable-specific datasets by GEO_ID and Year
+# final_data <- population_data %>%
+#   left_join(rent_data, by = c("GEO_ID", "Year")) %>%
+#   left_join(income_data, by = c("GEO_ID", "Year")) %>%
+#   left_join(poverty_data, by = c("GEO_ID", "Year")) %>%
+#   left_join(vacancy_data, by = c("GEO_ID", "Year")) %>%
+#   left_join(renter_data, by = c("GEO_ID", "Year")) %>%
+#   left_join(cost_burdened_data, by = c("GEO_ID", "Year")) %>%
+#   left_join(unemployment_data, by = c("GEO_ID", "Year"))
+# 
+# # Inspect the merged dataset
+# head(final_data)
+```
+
+### Merge all dataset together
+```{r}
+#--------------------------------------VERSION 2-------------------------------------------------------------
+# Merge all variable-specific datasets by GEO_ID and Year
+final_data_2 <- population_data %>%
+  left_join(rent_data, by = c("GEO_ID", "Year")) %>%
+  left_join(income_data, by = c("GEO_ID", "Year")) %>%
+  left_join(poverty_data, by = c("GEO_ID", "Year")) %>%
+  left_join(total_housing_data, by = c("GEO_ID", "Year")) %>%  # For Vacancy Rate
+  left_join(vacant_housing_data, by = c("GEO_ID", "Year")) %>% # For Vacancy Rate
+  left_join(renter_data, by = c("GEO_ID", "Year")) %>%         # For Renter Household Rate
+  left_join(total_occupied_data, by = c("GEO_ID", "Year")) %>% # For Renter Household Rate
+  left_join(cost_burdened_data, by = c("GEO_ID", "Year")) %>%  # For Cost-Burdened Rate
+  left_join(total_labor_force_data, by = c("GEO_ID", "Year")) %>% # For Unemployment Rate
+  left_join(unemployed_data, by = c("GEO_ID", "Year"))            # For Unemployment Rate
+
+# Inspect the merged dataset
+head(final_data_2)
+```
+### Extend data 2007-2023
+```{r}
+# Duplicate 2010 data for 2007, 2008, and 2009
+data_2010_2 <- final_data_2 %>%
+  filter(Year == 2010)
+
+# Create duplicates for 2007, 2008, and 2009
+data_2007_2009_2 <- data_2010_2 %>%
+  mutate(Year = 2007) %>%
+  bind_rows(mutate(data_2010_2, Year = 2008)) %>%
+  bind_rows(mutate(data_2010_2, Year = 2009))
+
+# Duplicate 2022 data for 2023
+data_2022_2 <- final_data_2 %>%
+  filter(Year == 2022)
+
+data_2023_2 <- data_2022_2 %>%
+  mutate(Year = 2023)
+
+# Combine original data with the new duplicated years
+final_data_extended_2 <- final_data_2 %>%
+  bind_rows(data_2007_2009_2) %>%
+  bind_rows(data_2023_2)
+
+# Inspect the final extended dataset
+head(final_data_extended_2)
+```
+### Mapping GEO_ID to CoC
+```{r}
+# Load the mapping files and rename GEOID to GEO_ID, then select only relevant columns
+geo_to_coc_2022 <- read_csv(file.path(main_dir, "tract_coc_match_2022.csv")) %>%
+  rename(GEO_ID = GEOID) %>%
+  select(GEO_ID, COCNUM)
+
+geo_to_coc_2019 <- read_csv(file.path(main_dir, "tract_coc_match_to_2019_tracts.csv")) %>%
+  rename(GEO_ID = GEOID) %>%
+  select(GEO_ID, COCNUM)
+
+# Modify final_data_extended to keep only the last 11 digits of GEO_ID
+final_data_extended_2 <- final_data_extended_2 %>%
+  mutate(GEO_ID = substr(GEO_ID, nchar(GEO_ID) - 10, nchar(GEO_ID)))
+
+# Split the dataset into two subsets: years <= 2019 and years >= 2020
+final_data_pre_2020_2 <- final_data_extended_2 %>%
+  filter(Year <= 2019)
+
+final_data_post_2019_2 <- final_data_extended_2 %>%
+  filter(Year >= 2020)
+
+# Merge GEO_ID to CoC_Number for years <= 2019 using geo_to_coc_2019
+final_data_pre_2020_2 <- final_data_pre_2020_2 %>%
+  left_join(geo_to_coc_2019, by = "GEO_ID") %>%
+  rename(CoC_Number = COCNUM)
+
+# Merge GEO_ID to CoC_Number for years >= 2020 using geo_to_coc_2022
+final_data_post_2019_2 <- final_data_post_2019_2 %>%
+  left_join(geo_to_coc_2022, by = "GEO_ID") %>%
+  rename(CoC_Number = COCNUM)
+
+# Combine the two subsets back together
+final_data_with_coc_2 <- bind_rows(final_data_pre_2020_2, final_data_post_2019_2)
+
+# Count the number of unmatched GEO_IDs (those without a CoC Number) for each year
+unmatched_geo_count_by_year_2 <- final_data_with_coc_2 %>%
+  filter(is.na(CoC_Number)) %>%
+  group_by(Year) %>%
+  summarise(unmatched_count = n())
+
+# Print the count of unmatched GEO_IDs by year
+print(unmatched_geo_count_by_year_2)
+
+# Inspect a few rows of the final merged dataset
+head(final_data_with_coc_2)
+```
+
+
+
+### Cleaning dataset
+```{r}
+library(dplyr)
+
+# Step 1: Identify columns starting with "B"
+columns_of_interest <- names(final_data_with_coc_2)[grepl("^B", names(final_data_with_coc_2))]
+
+# Step 2: Dataset with at least one NA, non-numeric, or 0
+rows_with_issues <- final_data_with_coc_2 %>%
+  rowwise() %>%
+  filter(any(sapply(across(all_of(columns_of_interest)), function(col) {
+    val <- suppressWarnings(as.numeric(col))  # Convert to numeric
+    is.na(val) || val == 0  # Check for NA or 0
+  }))) %>%
+  ungroup()
+
+# Step 3: Dataset with all other rows
+clean_rows <- final_data_with_coc_2 %>%
+  rowwise() %>%
+  filter(all(sapply(across(all_of(columns_of_interest)), function(col) {
+    val <- suppressWarnings(as.numeric(col))  # Convert to numeric
+    !is.na(val) && val != 0  # Keep only numeric and non-zero values
+  }))) %>%
+  ungroup()
+```
+
+### Aggregating dataset
+```{r}
+library(dplyr)
+
+# Aggregate clean_rows to CoC level
+aggregated_clean_rows <- clean_rows %>%
+  group_by(CoC_Number, Year) %>%
+  summarise(
+    # Sum variables (column names remain unchanged)
+    B01003_001E = sum(as.numeric(B01003_001E), na.rm = TRUE),  # Total Population
+    B17001_002E = sum(as.numeric(B17001_002E), na.rm = TRUE),  # Total Poverty Population
+    B25002_001E = sum(as.numeric(B25002_001E), na.rm = TRUE),  # Total Housing Units
+    B25002_003E = sum(as.numeric(B25002_003E), na.rm = TRUE),  # Vacant Housing Units
+    B25003_003E = sum(as.numeric(B25003_003E), na.rm = TRUE),  # Renter Occupied Units
+    B25003_001E = sum(as.numeric(B25003_001E), na.rm = TRUE),  # Total Occupied Units
+    B25106_001E = sum(as.numeric(B25106_001E), na.rm = TRUE),  # Cost Burdened Households
+    B23025_003E = sum(as.numeric(B23025_003E), na.rm = TRUE),  # Civilian Labor Force
+    B23025_005E = sum(as.numeric(B23025_005E), na.rm = TRUE),  # Unemployed Individuals
+    
+    # Population-weighted averages (column names remain unchanged)
+    B25064_001E = sum(as.numeric(B25064_001E) * as.numeric(B01003_001E), na.rm = TRUE) /
+                  sum(as.numeric(B01003_001E), na.rm = TRUE),  # Weighted Median Rent
+    B19013_001E = sum(as.numeric(B19013_001E) * as.numeric(B01003_001E), na.rm = TRUE) /
+                  sum(as.numeric(B01003_001E), na.rm = TRUE),  # Weighted Median Income
+    .groups = "drop"  # Explicitly ungroup the data after summarisation
+  )
+
+# Inspect the aggregated dataset
+head(aggregated_clean_rows)
+write_csv(aggregated_clean_rows, file.path(main_dir, "aggregated_clean_rows_by_CoC.csv"))
+```
+
+### Calculate Rates
+```{r}
+# Add calculated rate columns, skipping rows where Year is non-numeric
+# final_data_with_coc_2 <- final_data_with_coc_2 %>%
+library(dplyr)
+
+# Add calculated rate columns to aggregated_clean_rows
+aggregated_clean_rows <- aggregated_clean_rows %>%
+  mutate(
+    # Unemployment Rate
+    Unemployment_Rate = if_else(
+      !is.na(B23025_003E) & B23025_003E > 0,
+      (B23025_005E / B23025_003E) * 100,
+      NA_real_
+    ),
+    
+    # Vacancy Rate
+    Vacancy_Rate = if_else(
+      !is.na(B25002_001E) & B25002_001E > 0,
+      (B25002_003E / B25002_001E) * 100,
+      NA_real_
+    ),
+    
+    # Renter Household Rate
+    Renter_Household_Rate = if_else(
+      !is.na(B25003_001E) & B25003_001E > 0,
+      (B25003_003E / B25003_001E) * 100,
+      NA_real_
+    ),
+    
+    # Cost-Burdened Renter Rate
+    Cost_Burdened_Rate = if_else(
+      !is.na(B25003_003E) & B25003_003E > 0,
+      (B25106_001E / B25003_003E) * 100,
+      NA_real_
+    ),
+    
+    # Poverty Rate
+    Poverty_Rate = if_else(
+      !is.na(B01003_001E) & B01003_001E > 0,
+      (B17001_002E / B01003_001E) * 100,
+      NA_real_
+    )
+  )
+
+# Inspect the updated dataset
+head(aggregated_clean_rows)
+
+```
+
+
+### Adding descrption
+```{r}
+# # Convert all columns in final_data_with_coc to character for binding
+# final_data_with_coc <- final_data_with_coc %>%
+#   mutate(across(everything(), as.character))
+# 
+# final_data_with_coc <- final_data_with_coc %>%
+#   slice(-1)
+# # Define the descriptive row in the correct order with uppercase column names
+# descriptive_row <- data.frame(
+#   GEO_ID = "Geography",
+#   Year = "Year of data",
+#   B01003_001E = "Total Population",
+#   B25064_001E = "Median Gross Rent (Dollars)",
+#   B19013_001E = "Median Household Income in the Past 12 Months (in 2022 Inflation-Adjusted Dollars)",
+#   B17001_001E = "Poverty Status in the Past 12 Months by Sex by Age",
+#   B25004_001E = "Total Vacancy Status",
+#   B25008_001E = "Total Population in Occupied Housing Units by Tenure",
+#   B25106_001E = "Tenure by Housing Costs greater than 30 percent of Household Income in the Past 12 Months",
+#   B23001_001E = "Sex by Age by Employment Status for the Population 16 Years and Over",
+#   CoC_Number = "Continuum of Care (CoC) identification number"
+# )
+# 
+# # Ensure that `descriptive_row` matches the structure of `final_data_with_coc`
+# descriptive_row <- descriptive_row[1, , drop = FALSE]  # Ensure it is a single-row data frame
+# 
+# # Bind the descriptive row as the second row in the dataset
+# final_data_with_descriptions <- bind_rows(descriptive_row, final_data_with_coc)
+# 
+# # View the first few rows to confirm the structure
+# head(final_data_with_descriptions, n = 5)
+# 
+# # Save the dataset with descriptions as the second row if needed
+# write_csv(final_data_with_descriptions, file.path(main_dir, "final_data_with_descriptions.csv"))
+```
+
+```{r}
+library(readxl)
+library(dplyr)
+library(openxlsx)
+```
+
+### Merging to PIT
+```{r}
+library(readxl)
+library(dplyr)
+
+# Path to the .xlsx file
+pit_counts_path <- file.path(main_dir, "2007-2023-PIT-Counts-by-CoC.xlsx")
+
+# Get the sheet names (years)
+sheet_names <- excel_sheets(pit_counts_path)
+
+# Initialize an empty list to store data from each sheet
+pit_data_list <- list()
+
+# Loop through each sheet, extract data, and add to the list
+for (sheet in sheet_names) {
+  # Read data from the current sheet
+  sheet_data <- read_excel(pit_counts_path, sheet = sheet)
+
+  # Ensure all required columns are present
+  required_columns <- c(
+    "Overall Homeless",
+    "Overall Homeless Individuals",
+    "Overall Homeless People in Families",
+    "Unsheltered Homeless",
+    "Sheltered Total Homeless",
+    "CoC Number"
+  )
+  
+  if (all(required_columns %in% colnames(sheet_data))) {
+    # Add Year column, rename `CoC Number` to `CoC_Number`, and select relevant columns
+    sheet_data <- sheet_data %>%
+      mutate(Year = as.integer(sheet)) %>% # Add Year from sheet name
+      rename(CoC_Number = `CoC Number`) %>% # Rename the column
+      select(
+        Year,
+        CoC_Number,
+        `Overall Homeless`,
+        `Overall Homeless Individuals`,
+        `Overall Homeless People in Families`,
+        `Unsheltered Homeless`,
+        `Sheltered Total Homeless`
+      )
+    
+    # Append to the list
+    pit_data_list[[sheet]] <- sheet_data
+  }
+}
+
+# Combine all sheets into a single data frame
+pit_counts_combined <- bind_rows(pit_data_list)
+
+# Merge the PIT counts data with aggregated_clean_rows
+ACS_PIT <- aggregated_clean_rows %>%
+  left_join(pit_counts_combined, by = c("Year", "CoC_Number"))
+
+# Inspect the merged dataset
+head(ACS_PIT)
+```
+
+```{r}
+# # Convert Year in final_data_with_descriptions to integer
+# final_data_with_coc_2 <- final_data_with_coc_2 %>%
+#   mutate(Year = as.integer(Year))
+# 
+# # Merge datasets
+# merged_data_2 <- final_data_with_coc_2 %>%
+#   left_join(pit_counts_combined, by = c("Year", "CoC_Number"))
+# merged_data_2 <- merged_data_2 %>%
+#   slice(-1)
+# 
+# # Inspect the merged dataset
+# head(merged_data_2)
+# 
+# # Save the merged dataset to a CSV file
+# write_csv(merged_data_2, file.path(main_dir, "final_data_with_pit_counts_2.csv"))
+
+```
+
+### Mering to HIC
+```{r}
+# Path to the new file
+hic_counts_path <- file.path(main_dir, "2007-2023-HIC-Counts-by-CoC_merged.csv")
+
+# Load the new dataset
+hic_counts_data <- read_csv(hic_counts_path)
+
+# Rename the column in the HIC dataset to match `merged_data_2`
+hic_counts_data <- hic_counts_data %>%
+  rename(CoC_Number = `CoC Number`)
+
+# Inspect the updated HIC dataset
+head(hic_counts_data)
+
+# Perform the merge
+ACS_PIT_HIC <- ACS_PIT %>%
+  left_join(hic_counts_data, by = c("Year", "CoC_Number"))
+
+# Inspect the merged dataset
+head(ACS_PIT_HIC)
+write_csv(ACS_PIT_HIC, file.path(main_dir, "ACS_PIT_HIC.csv"))
+```

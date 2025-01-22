@@ -1,0 +1,4 @@
+This file aims to present the shelter and permanent housing capacity data, specifically focusing on the "Total Year Round" beds for various housing types: Emergency Shelter (ES), Transitional Housing (TH), Safe Haven (SH), Rapid Re-Housing (RRH), and Permanent Supportive Housing (PSH).
+The data includes separate indicators for each bed type, distinguishing between Households with Children and Households without Children, at the Continuum of Care (CoC) level. 
+The analysis combines datasets from the 2014-2023 Housing Inventory Count (HIC) provided by the U.S. Department of Housing and Urban Development (HUD) to create a new, comprehensive dataset featuring the required indicators. The source data can be accessed from the "2007-2023-HIC Counts by CoC" Excel file available online.
+https://www.hudexchange.info/resource/3031/pit-and-hic-data-since-2007/

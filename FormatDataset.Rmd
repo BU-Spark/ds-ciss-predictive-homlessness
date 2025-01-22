@@ -1,0 +1,102 @@
+---
+title: "FormatDataset"
+author: "Shiheng Xu"
+date: "2024-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Install and load necessary libraries if not already installed
+# install.packages("readxlsb")
+
+library(readxlsb)
+library(dplyr)
+library(purrr)
+library(tidyr)
+
+# File path
+file_path <- "/Users/xushiheng/Desktop/副本2007-2023-PIT-Counts-by-CoC.xlsb"
+
+# Generate sheet names dynamically for each year from 2007 to 2023
+sheets <- as.character(2007:2023)
+
+# Read the "2023" sheet to get the CoC Category data
+data_2023 <- read_xlsb(file_path, sheet = "2023") %>%
+  select(CoC.Number, CoC.Category) # Only keep CoC.Number and CoC.Category
+
+# Function to read and format each sheet
+read_and_format_sheet <- function(sheet_name) {
+  # Read the data from the sheet
+  data <- read_xlsb(file_path, sheet = sheet_name)
+  
+  # Extract year from the sheet name
+  year <- as.numeric(sheet_name)
+  
+  # Check for missing columns and add them as NA if necessary
+  if (!"CoC.Category" %in% colnames(data)) {
+    data$CoC.Category <- NA
+  }
+  if (!"Count.Types" %in% colnames(data)) {
+    data$Count.Types <- NA
+  }
+  
+  # Merge with 2023 data to fill in missing CoC.Category without affecting other columns
+  data <- data %>%
+    left_join(data_2023, by = "CoC.Number", suffix = c("", "_2023")) %>%
+    mutate(CoC.Category = ifelse(is.na(CoC.Category), CoC.Category_2023, CoC.Category)) %>%
+    select(-CoC.Category_2023) # Remove the helper column
+  
+  # Filter out specific CoC Numbers that are not needed
+  data <- data %>%
+    filter(
+      !grepl("\\* File does not contain the imputed ages for people experiencing unsheltered homelessness over age 24 for the 22 CoCs that did not conduct an unsheltered count in 2023.", CoC.Number),
+      !grepl("MO-604 covers territory in both Missouri and Kansas", CoC.Number)
+    )
+  
+  # Get all columns except the metadata columns
+  homelessness_columns <- setdiff(colnames(data), c("CoC.Number", "CoC.Name", "CoC.Category", "Count.Types"))
+  
+  # Convert only non-missing homelessness columns to numeric (suppress warnings for coercion)
+  data[homelessness_columns] <- lapply(data[homelessness_columns], function(col) {
+    as.numeric(suppressWarnings(as.character(col)))
+  })
+
+  # Pivot the data to long format for all homelessness types
+  formatted_data <- data %>%
+    pivot_longer(
+      cols = all_of(homelessness_columns),
+      names_to = "Homelessness.Type",
+      values_to = "Count"
+    ) %>%
+    filter(!is.na(Count)) %>%  # Ensure no NA values in Count
+    mutate(Year = year) %>%
+    rename(
+      `CoC Number` = CoC.Number,
+      `CoC Name` = CoC.Name,
+      `CoC Category` = CoC.Category,
+      `Count Types` = Count.Types
+    )
+  
+  return(formatted_data)
+}
+
+# Apply function to all sheets and combine results
+all_data <- map_dfr(sheets, read_and_format_sheet)
+
+# Preview the combined formatted data
+head(all_data)
+
+```
+
+```{r}
+# Specify the output file path
+output_csv_file <- "/Users/xushiheng/Desktop/all_data_output.csv"
+
+# Write the data to a CSV file
+write.csv(all_data, output_csv_file, row.names = FALSE)
+```
+
