@@ -63,6 +63,8 @@ By modeling community-level drivers of homelessness, this project enables:
    - Features: L2 regularization, 20% dropout, early stopping
 3. **XGBoost** *(In Progress)*
 
+### All Models were run with this final dataset with all corrections described in final report implemented: `CISS_final_df2.csv`
+
 ### Evaluation Metrics
 - **MAE** (Mean Absolute Error)
 - **R²** (Coefficient of Determination)
