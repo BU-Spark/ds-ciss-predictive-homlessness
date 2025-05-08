@@ -37,6 +37,21 @@ By modeling community-level drivers of homelessness, this project enables:
      - Generates visualizations:
        - Feature correlation plots
        - Regression coefficient matrices
+     - Evaluates model performance using MAE and R² metrics
+
+3. **QihangReal539.ipynb**
+   - **Purpose:** Performs exploratory data analysis (EDA) and develops a neural network model
+   - **Key Features:**
+     - Conducts detailed EDA to identify trends and correlations in the dataset
+     - Implements a neural network with L2 regularization, dropout, and early stopping
+     - Captures nonlinear relationships in the data for improved predictions
+
+4. **Pat_Feature_engineering.ipynb**
+   - **Purpose:** Implements feature engineering and develops an XGBoost model
+   - **Key Features:**
+     - Creates new features to enhance model performance
+     - Trains and evaluates an XGBoost model for homelessness prediction
+     - Compares results with other models to identify the best-performing approach
 
 ## Datasets
 - **Primary Sources:**
