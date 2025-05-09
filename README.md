@@ -46,12 +46,15 @@ By modeling community-level drivers of homelessness, this project enables:
      - Implements a neural network with L2 regularization, dropout, and early stopping
      - Captures nonlinear relationships in the data for improved predictions
 
-4. **Pat_Feature_engineering.ipynb**
-   - **Purpose:** Implements feature engineering and develops an XGBoost model
+4. **Pat_Modeling_Final.ipynb**
+   - **Purpose:** Implements XGboost model on all of the target variables, and production of feature importance graphs. 
    - **Key Features:**
-     - Creates new features to enhance model performance
-     - Trains and evaluates an XGBoost model for homelessness prediction
-     - Compares results with other models to identify the best-performing approach
+     - Trains and evaluates an XGBoost model for all five target variables
+     - Creates feature importance graph for each model, using gain as the metric.
+5. ##**S25_Final_DatasetMerging.ipynb**
+   - **Purpose:** Merging the PIT data with the ACS data and updated bed data.
+   - **Key Features:**
+     - The CoC pairs that were dropped are shown in a list in this notebook. 
 
 ## Datasets
 - **Primary Sources:**
