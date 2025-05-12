@@ -1,43 +1,98 @@
-## Predictive Model Based on Homelessness
+# Community-Level Homelessness Prediction Model
 
-Client Team:
-Dr. Tom Byrne
-Associate Professor, School of Social Work, BU
-Dr. Molly Richard
-Postdoctoral Associate, Center for Innovation in Social Science, BU
+## Project Overview
+This project develops a predictive model for homelessness at the community level, analyzing data from 2010–2023 across approximately 400 Continuums of Care (CoCs) funded by the U.S. Department of Housing and Urban Development (HUD). Unlike prior studies focusing on individual-level predictions, this project emphasizes structural factors such as rent levels, economic conditions, and unemployment rates to forecast homelessness rates or counts.
 
-Instructor: Prof. Thomas Gardos
+**Goal:** Provide actionable insights for policymakers and community organizations to optimize resource allocation and implement timely interventions to reduce homelessness.
 
-Technical Project Manager (TPM): Dhruv Shah
-Project Manager (PM): Jasmine Dong
+## Objectives
+- Identify and correct errors and inconsistencies in the dataset inherited from the previous semester's team
+- Develop machine learning models with improved accuracy compared to previous semester's models
 
-Team Members:
-Syeda Shehrbano Aqeel (team lead)
-Samritha Aadhi Ravikumar
-Kunshu Yang
-Renjie Fan
-Shiheng Xu
+## Big Impact
+By modeling community-level drivers of homelessness, this project enables:
+- Efficient resource allocation for assistance programs
+- Identification of key socioeconomic factors influencing homelessness trends
+- Timely policy interventions to reduce homelessness on a larger scale
 
-## Project Overview:
-Goal: Develop a predictive model of homelessness at the community level using data from 2007-2023.
-Focuses on approximately 400 Continuums of Care (CoC) that receive federal homeless assistance funding from the U.S. Department of Housing and Urban Development (HUD).
-Unique Focus: Unlike previous studies that predict homelessness at the individual level, this project centers on community-level factors.
-
-## Data Sources:
-Primary Data: Annual homelessness counts from HUD across CoC units.
-Additional Data: Publicly available community-level factors such as rent rates, demographic and economic conditions, aggregated by CoC.
-Timeframe: 2007 to 2023.
-
-## Key Research Questions:
-Moving beyond simply identifying associations between community-level factors and homelessness.
-Objective: Predict the number or rate of homelessness in each CoC based on structural determinants like rent levels and economic conditions.
-
-## Methodology and Tools:
-Modeling Approach: Regression models or other predictive machine learning techniques.
-Required Skills: Familiarity with regression models, feature engineering, and experience with the pandas and scikit-learn packages in Python.
+## Repository Structure
 
 
-# TEMPLATE-base-repo
-Create a new branch from dev, add changes on the new branch you just created.
-Open a Pull Request to dev. Add your PM and TPM as reviewers. 
-At the end of the semester during project wrap up open a final Pull Request to main from dev branch.
+## Key Files
+### Python Notebooks
+1. **Fix_Rent_+_Income.ipynb**
+   - **Purpose:** Processes American Community Survey (ACS) census tract data to correct errors in rent and income calculations
+   - **Key Features:**
+     - Downloads ACS data (population, rent, income) directly from U.S. Census Bureau
+     - Computes population-weighted averages using:  
+       `Weighted Average = Σ(Valueᵢ × Populationᵢ) / ΣPopulationᵢ`
+     - Addresses previous inflation issues (e.g., mean rent ~$186K → corrected values)
+   - **Output:** Generates `corrected_stuff.csv`
+
+2. **Regression_w_fixed_targets.ipynb**
+   - **Purpose:** Builds linear regression models with corrected data
+   - **Key Features:**
+     - Normalizes target variables per 1,000 people:  
+       `Normalized Target = (Raw Count / Population) × 1,000`
+     - Generates visualizations:
+       - Feature correlation plots
+       - Regression coefficient matrices
+     - Evaluates model performance using MAE and R² metrics
+
+3. **QihangReal539.ipynb**
+   - **Purpose:** Performs exploratory data analysis (EDA) and develops a neural network model
+   - **Key Features:**
+     - Conducts detailed EDA to identify trends and correlations in the dataset
+     - Implements a neural network with L2 regularization, dropout, and early stopping
+     - Captures nonlinear relationships in the data for improved predictions
+
+4. **Pat_Modeling_Final.ipynb**
+   - **Purpose:** Implements XGboost model on all of the target variables, and production of feature importance graphs. 
+   - **Key Features:**
+     - Trains and evaluates an XGBoost model for all five target variables
+     - Creates feature importance graph for each model, using gain as the metric.
+5. ##**S25_Final_DatasetMerging.ipynb**
+   - **Purpose:** Merging the PIT data with the ACS data and updated bed data.
+   - **Key Features:**
+     - The CoC pairs that were dropped are shown in a list in this notebook. 
+
+## Datasets
+- **Primary Sources:**
+  - [ACS Population Data (B01003)](https://www.census.gov/)
+  - [ACS Rent Data (B25064)](https://www.census.gov/)
+  - [ACS Income Data (B19013)](https://www.census.gov/)
+- **Point-in-Time (PIT) Data:** Used for homelessness counts (merged with ACS data)
+
+## Data Cleaning Highlights
+| Issue | Fix |
+|-------|-----|
+| 42% missing bed data | Imputed zeros for missing values |
+| Inflated rent/income values | Implemented population-weighted averages |
+| Erroneous "total homeless" row | Removed outlier |
+| Incorrect normalization | Standardized per 1,000 people |
+
+## Model Development
+### Approaches
+1. **Linear Regression**
+   - Baseline interpretable model
+   - Improved with normalized targets
+2. **Neural Network**
+   - Captures nonlinear relationships
+   - Features: L2 regularization, 20% dropout, early stopping
+3. **XGBoost** *(In Progress)*
+
+### All Models were run with our teams final dataset that has all the corrections described in final report: `CISS_final_df2.csv`
+
+### Evaluation Metrics
+- **MAE** (Mean Absolute Error)
+- **R²** (Coefficient of Determination)
+
+## Key Findings
+- **Strongest Predictors:**
+  - Renter Household Rate (~0.4 correlation)
+  - Cost Burdened Rate (~0.3)
+  - Unemployment Rate (~0.25)
+- **Trends (2007-2023):**
+  - Post-2020 surge in unsheltered homelessness
+  - Family homelessness correlates with extreme socioeconomic conditions
+
